@@ -1,4 +1,3 @@
---Converted with ttyyuu12345's model to script plugin v4
 function sandbox(var,func)
 local env = getfenv(func)
 local newenv = setmetatable({},{
@@ -59,7 +58,7 @@ local TOGGLE_INPUT_PRIORITY = Enum.ContextActionPriority.Low.Value
 local INPUT_PRIORITY = Enum.ContextActionPriority.High.Value
 local FREECAM_MACRO_KB = {Enum.KeyCode.LeftShift, Enum.KeyCode.P}
 
-local NAV_GAIN = Vector3.new(1, 1, 1)*20
+local NAV_GAIN = Vector3.new(1, 1, 1)*150
 local PAN_GAIN = Vector2.new(0.75, 1)*3
 local FOV_GAIN = 300
 
