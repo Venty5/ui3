@@ -1,4 +1,3 @@
---Converted with ttyyuu12345's model to script plugin v4
 function sandbox(var,func)
 local env = getfenv(func)
 local newenv = setmetatable({},{
@@ -172,7 +171,7 @@ MouseWheel = 0,
 
 local NAV_GAMEPAD_SPEED  = Vector3.new(1, 1, 1)
 local NAV_KEYBOARD_SPEED = Vector3.new(1, 1, 1)
-local PAN_MOUSE_SPEED    = Vector2.new(1, 1)*(pi/64)
+local PAN_MOUSE_SPEED    = Vector2.new(1, 1)*(pi/16)
 local PAN_GAMEPAD_SPEED  = Vector2.new(1, 1)*(pi/8)
 local FOV_WHEEL_SPEED    = 1.0
 local FOV_GAMEPAD_SPEED  = 0.25
