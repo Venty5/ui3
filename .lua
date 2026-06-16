@@ -23,7 +23,7 @@ local Library = {
 			SecondTransparency = 0.15,
 			FrameTransparency = 0.2
 		},
-		Schwarz = {
+		Black = {
 			Main = Color3.fromRGB(10, 10, 12),
 			Second = Color3.fromRGB(18, 18, 20),
 			Stroke = Color3.fromRGB(45, 45, 50),
@@ -34,7 +34,7 @@ local Library = {
 			SecondTransparency = 0.1,
 			FrameTransparency = 0.15
 		},
-		Weiss = {
+		White = {
 			Main = Color3.fromRGB(230, 230, 235),
 			Second = Color3.fromRGB(215, 215, 220),
 			Stroke = Color3.fromRGB(180, 180, 185),
@@ -45,7 +45,7 @@ local Library = {
 			SecondTransparency = 0.1,
 			FrameTransparency = 0.15
 		},
-		Grau = {
+		Gray = {
 			Main = Color3.fromRGB(55, 55, 60),
 			Second = Color3.fromRGB(70, 70, 75),
 			Stroke = Color3.fromRGB(100, 100, 105),
@@ -56,7 +56,7 @@ local Library = {
 			SecondTransparency = 0.15,
 			FrameTransparency = 0.2
 		},
-		Blau = {
+		Blue = {
 			Main = Color3.fromRGB(10, 20, 45),
 			Second = Color3.fromRGB(15, 30, 65),
 			Stroke = Color3.fromRGB(40, 70, 130),
@@ -67,7 +67,7 @@ local Library = {
 			SecondTransparency = 0.15,
 			FrameTransparency = 0.2
 		},
-		Lila = {
+		Purple = {
 			Main = Color3.fromRGB(25, 10, 45),
 			Second = Color3.fromRGB(38, 15, 65),
 			Stroke = Color3.fromRGB(90, 40, 150),
@@ -78,7 +78,7 @@ local Library = {
 			SecondTransparency = 0.15,
 			FrameTransparency = 0.2
 		},
-		Rot = {
+		Red = {
 			Main = Color3.fromRGB(35, 8, 8),
 			Second = Color3.fromRGB(55, 12, 12),
 			Stroke = Color3.fromRGB(130, 35, 35),
@@ -620,8 +620,8 @@ function Library:MakeWindow(WindowConfig)
 	}), "Main")
 
 	-- Theme dropdown popup (parented to Container so it floats above everything)
-	local ThemeNames = {"Schwarz", "Weiss", "Grau", "Blau", "Lila", "Rot"}
-	local ThemeDisplayNames = {"Schwarz", "Weiß", "Grau", "Blau", "Lila", "Rot"}
+	local ThemeNames = {"Black", "White", "Gray", "Blue", "Purple", "Red"}
+	local ThemeDisplayNames = {"Black", "White", "Gray", "Blue", "Purple", "Red"}
 
 	local ThemePopup = Create("Frame", {
 		BackgroundColor3 = Library.Themes[Library.SelectedTheme].Second,
