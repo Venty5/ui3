@@ -1,4 +1,3 @@
---lol
 local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
 local RunService = game:GetService("RunService")
@@ -896,7 +895,10 @@ function Library:MakeWindow(WindowConfig)
 
 	if WindowConfig.IntroEnabled then LoadSequence() end
 
+	local CurrentActiveTab, CurrentActiveContainer
+
 	local function ActivateTab(TabFrame, TabItemContainer)
+		CurrentActiveTab, CurrentActiveContainer = TabFrame, TabItemContainer
 		for _, Tab in next, TabHolder:GetChildren() do
 			if Tab:IsA("TextButton") and Tab:FindFirstChild("Ico") and Tab:FindFirstChild("Title") then
 				Tab.Title.Font = Enum.Font.GothamBlack
@@ -964,6 +966,7 @@ function Library:MakeWindow(WindowConfig)
 			TabFrame.Ico.ImageColor3 = Color3.fromRGB(255, 255, 255)
 			TabFrame.Title.TextColor3 = Color3.fromRGB(255, 255, 255)
 			TabItemContainer.Visible = true
+			CurrentActiveTab, CurrentActiveContainer = TabFrame, TabItemContainer
 		end
 
 		AddConnection(TabFrame.MouseButton1Click, function()
@@ -1796,7 +1799,7 @@ function Library:MakeWindow(WindowConfig)
 			end)
 			local SectionFunction = {}
 			for i, v in next, GetElements(SectionFrame.Holder) do SectionFunction[i] = v end
-			return SectionFunction
+			return SectionFunction, SectionFrame.Holder
 		end
 
 		for i, v in next, GetElements(TabItemContainer) do ElementFunction[i] = v end
@@ -1811,95 +1814,6 @@ function Library:MakeWindow(WindowConfig)
 			})
 		end
 		return ElementFunction, TabFrame, TabItemContainer
-	end
-
-	do
-		local PresetThemes = {"Black", "White", "Gray", "Blue", "Purple", "Red"}
-		local DefaultAccent = Color3.fromRGB(90, 140, 230)
-		local SavedAccent = nil
-		if WindowConfig.SaveConfig and Library.ConfigFile and Library.UserConfig.__customAccent then
-			local saved = Library.UserConfig.__customAccent
-			if saved and saved.R and saved.G and saved.B then SavedAccent = UnpackColor(saved) end
-		end
-
-		local WasFirstTab = FirstTab
-		FirstTab = true
-		local ThemeTabEF, ThemeTabFrame, ThemeTabItemContainer = BuildTab({Name = "Theme"}, TabHolder)
-		ThemeTabFrame.LayoutOrder = 1000000
-		if WasFirstTab then
-			-- undo the automatic "first tab" selection so the caller's own first tab stays selected
-			ThemeTabItemContainer.Visible = false
-			ThemeTabFrame.Ico.ImageTransparency = 0.4
-			ThemeTabFrame.Ico.ImageColor3 = Color3.fromRGB(240, 240, 240)
-			ThemeTabFrame.Title.TextTransparency = 0.4
-			ThemeTabFrame.Title.TextColor3 = Color3.fromRGB(240, 240, 240)
-			FirstTab = true
-		end
-
-		AddConnection(ThemeBtn.MouseButton1Click, function()
-			local sound = Instance.new("Sound") sound.SoundId = "rbxassetid://6895079853" sound.Volume = 0.5 sound.Parent = game:GetService("SoundService") sound:Play() game:GetService("Debris"):AddItem(sound, 1)
-			ActivateTab(ThemeTabFrame, ThemeTabItemContainer)
-		end)
-
-		local PresetsSection = ThemeTabEF:AddSection({Name = "Presets"})
-		for _, tName in ipairs(PresetThemes) do
-			PresetsSection:AddButton({
-				Name = tName,
-				Callback = function()
-					Library.SelectedTheme = tName
-					SetTheme()
-					if WindowConfig.SaveConfig and Library.ConfigFile then
-						Library.UserConfig.__theme = tName
-						Library:SaveConfig()
-					end
-				end
-			})
-		end
-
-		local CustomSection = ThemeTabEF:AddSection({Name = "Custom Color"})
-
-		local AllowCustomThemeApply = false
-		local function ApplyCustomTheme(Color)
-			Library.Themes.Custom = GenerateThemeFromAccent(Color)
-			Library.SelectedTheme = "Custom"
-			SetTheme()
-			if WindowConfig.SaveConfig and Library.ConfigFile then
-				Library.UserConfig.__theme = "Custom"
-				Library.UserConfig.__customAccent = PackColor(Color)
-				Library:SaveConfig()
-			end
-		end
-
-		local AccentColorpicker = CustomSection:AddColorpicker({
-			Name = "Accent Color",
-			Default = SavedAccent or DefaultAccent,
-			Callback = function(Color)
-				if not AllowCustomThemeApply then return end
-				ApplyCustomTheme(Color)
-			end
-		})
-
-		if Library.UserConfig.__theme == "Custom" and SavedAccent then
-			ApplyCustomTheme(SavedAccent)
-		end
-		AllowCustomThemeApply = true
-
-		CustomSection:AddButton({
-			Name = "Reset Custom Color",
-			Callback = function()
-				Library.Themes.Custom = nil
-				Library.SelectedTheme = "Default"
-				SetTheme()
-				AllowCustomThemeApply = false
-				AccentColorpicker:Set(DefaultAccent)
-				AllowCustomThemeApply = true
-				if WindowConfig.SaveConfig and Library.ConfigFile then
-					Library.UserConfig.__theme = "Default"
-					Library.UserConfig.__customAccent = nil
-					Library:SaveConfig()
-				end
-			end
-		})
 	end
 
 	local TabFunction    = {}
@@ -2121,7 +2035,7 @@ function Library:MakeWindow(WindowConfig)
 	end
 
 	function TabFunction:MakeTab(TabConfig)
-		local ef, frame = BuildTab(TabConfig, TabHolder)
+		local ef, frame, container = BuildTab(TabConfig, TabHolder)
 		if frame then
 			frame.LayoutOrder = NextOrder()
 			AttachDrag(frame)
@@ -2132,7 +2046,7 @@ function Library:MakeWindow(WindowConfig)
 				frame.Visible = true
 			end
 		end
-		return ef
+		return ef, frame, container
 	end
 
 	function TabFunction:MakeTabGroup(GroupConfig)
@@ -2205,6 +2119,453 @@ function Library:MakeWindow(WindowConfig)
 			return tabEF
 		end
 		return GroupFunction
+	end
+
+	do
+		local PresetThemes = {"Black", "White", "Gray", "Blue", "Purple", "Red"}
+		local DefaultAccent = Color3.fromRGB(90, 140, 230)
+		local SavedAccent = nil
+		if WindowConfig.SaveConfig and Library.ConfigFile and Library.UserConfig.__customAccent then
+			local saved = Library.UserConfig.__customAccent
+			if saved and saved.R and saved.G and saved.B then SavedAccent = UnpackColor(saved) end
+		end
+
+		local ConfigsSupported = WindowConfig.SaveConfig and Library.ConfigFile
+			and isfile and writefile and readfile and isfolder and makefolder and listfiles and delfile
+
+		TabFunction:TabSection("Gui Settings")
+		local ThemeSection = currentTabSection
+		local ThemeTabEF, ThemeTabFrame, ThemeTabItemContainer = TabFunction:MakeTab({Name = "Theme"})
+		local ConfigsTabEF, ConfigsTabFrame, ConfigsTabItemContainer
+		if ConfigsSupported then
+			ConfigsTabEF, ConfigsTabFrame, ConfigsTabItemContainer = TabFunction:MakeTab({Name = "Configs"})
+		end
+		currentTabSection = nil -- keep this internal section out of the caller's own MakeTab calls
+
+		local ThemeSectionHeader = ThemeSection.header
+		ThemeSectionHeader.Visible = false
+		ThemeTabFrame.Visible = false
+		ThemeTabItemContainer.Visible = false
+		if ConfigsTabFrame then
+			ConfigsTabFrame.Visible = false
+			ConfigsTabItemContainer.Visible = false
+		end
+		FirstTab = true -- give back the "first tab" slot consumed while building the Theme tab
+
+		local function PlayRevealAnimation(Frame)
+			-- Position isn't animated here: TabHolder's UIListLayout continuously re-positions
+			-- its children, so a Position tween on a list item would just get overridden.
+			local Targets = {}
+			for _, c in ipairs(Frame:GetDescendants()) do
+				if c:IsA("TextLabel") or c:IsA("TextButton") then
+					table.insert(Targets, {Obj = c, Prop = "TextTransparency", Orig = c.TextTransparency})
+				elseif c:IsA("ImageLabel") or c:IsA("ImageButton") then
+					table.insert(Targets, {Obj = c, Prop = "ImageTransparency", Orig = c.ImageTransparency})
+				end
+			end
+			for _, Entry in ipairs(Targets) do Entry.Obj[Entry.Prop] = 1 end
+			for i, Entry in ipairs(Targets) do
+				TweenService:Create(Entry.Obj, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {[Entry.Prop] = Entry.Orig}):Play()
+			end
+		end
+
+		local ThemeModeActive = false
+		local SavedTabBeforeTheme, SavedContainerBeforeTheme
+		local HiddenSnapshot = {}
+
+		local function SetThemeModeActive(State)
+			if State == ThemeModeActive then return end
+			ThemeModeActive = State
+			if State then
+				SavedTabBeforeTheme, SavedContainerBeforeTheme = CurrentActiveTab, CurrentActiveContainer
+				table.clear(HiddenSnapshot)
+				for _, Child in next, TabHolder:GetChildren() do
+					if Child ~= ThemeSectionHeader and Child ~= ThemeTabFrame and Child ~= ConfigsTabFrame then
+						HiddenSnapshot[Child] = Child.Visible
+						Child.Visible = false
+					end
+				end
+				ThemeSectionHeader.Visible = true
+				ThemeTabFrame.Visible = true
+				if ConfigsTabFrame then ConfigsTabFrame.Visible = true end
+				PlayRevealAnimation(ThemeSectionHeader)
+				PlayRevealAnimation(ThemeTabFrame)
+				if ConfigsTabFrame then PlayRevealAnimation(ConfigsTabFrame) end
+				ActivateTab(ThemeTabFrame, ThemeTabItemContainer)
+				TweenService:Create(ThemeBtn.Ico, TweenInfo.new(0.2), {Rotation = 180}):Play()
+			else
+				for Child, WasVisible in next, HiddenSnapshot do
+					if Child and Child.Parent then Child.Visible = WasVisible end
+				end
+				ThemeSectionHeader.Visible = false
+				ThemeTabFrame.Visible = false
+				if ConfigsTabFrame then ConfigsTabFrame.Visible = false end
+				TweenService:Create(ThemeBtn.Ico, TweenInfo.new(0.2), {Rotation = 0}):Play()
+				if SavedTabBeforeTheme then
+					ActivateTab(SavedTabBeforeTheme, SavedContainerBeforeTheme)
+				end
+			end
+		end
+
+		AddConnection(ThemeBtn.MouseButton1Click, function()
+			local sound = Instance.new("Sound") sound.SoundId = "rbxassetid://6895079853" sound.Volume = 0.5 sound.Parent = game:GetService("SoundService") sound:Play() game:GetService("Debris"):AddItem(sound, 1)
+			SetThemeModeActive(not ThemeModeActive)
+		end)
+
+		local PresetsSection = ThemeTabEF:AddSection({Name = "Presets"})
+		local ThemeDropdown = PresetsSection:AddDropdown({
+			Name = "Theme",
+			Options = PresetThemes,
+			Default = Library.SelectedTheme,
+			Callback = function(tName)
+				Library.SelectedTheme = tName
+				SetTheme()
+				if WindowConfig.SaveConfig and Library.ConfigFile then
+					Library.UserConfig.__theme = tName
+					Library:SaveConfig()
+				end
+			end
+		})
+
+		local CustomSection = ThemeTabEF:AddSection({Name = "Custom Color"})
+
+		local AllowCustomThemeApply = false
+		local function ApplyCustomTheme(Color)
+			Library.Themes.Custom = GenerateThemeFromAccent(Color)
+			Library.SelectedTheme = "Custom"
+			SetTheme()
+			if WindowConfig.SaveConfig and Library.ConfigFile then
+				Library.UserConfig.__theme = "Custom"
+				Library.UserConfig.__customAccent = PackColor(Color)
+				Library:SaveConfig()
+			end
+		end
+
+		local AccentColorpicker = CustomSection:AddColorpicker({
+			Name = "Accent Color",
+			Default = SavedAccent or DefaultAccent,
+			Callback = function(Color)
+				if not AllowCustomThemeApply then return end
+				ApplyCustomTheme(Color)
+			end
+		})
+
+		if Library.UserConfig.__theme == "Custom" and SavedAccent then
+			ApplyCustomTheme(SavedAccent)
+		end
+		AllowCustomThemeApply = true
+
+		CustomSection:AddButton({
+			Name = "Reset Custom Color",
+			Callback = function()
+				Library.Themes.Custom = nil
+				Library.SelectedTheme = "Default"
+				SetTheme()
+				AllowCustomThemeApply = false
+				AccentColorpicker:Set(DefaultAccent)
+				AllowCustomThemeApply = true
+				if WindowConfig.SaveConfig and Library.ConfigFile then
+					Library.UserConfig.__theme = "Default"
+					Library.UserConfig.__customAccent = nil
+					Library:SaveConfig()
+				end
+			end
+		})
+
+		if ConfigsSupported then
+			local ConfigsRoot = (Library.ConfigFile:gsub("%.json$", "")) .. "_Configs"
+			if not isfolder(ConfigsRoot) then pcall(makefolder, ConfigsRoot) end
+
+			local function ConfigPath(id) return ConfigsRoot .. "/" .. id .. ".json" end
+
+			local function ListConfigIds()
+				local ids = {}
+				local ok, files = pcall(listfiles, ConfigsRoot)
+				if ok and files then
+					for _, path in ipairs(files) do
+						local id = path:match("([^\\/]+)%.json$")
+						if id and id ~= "_active" then table.insert(ids, id) end
+					end
+				end
+				table.sort(ids)
+				return ids
+			end
+
+			local IdChars = "ABCDEFGHJKLMNPQRSTUVWXYZ123456789"
+			local function GenerateId()
+				local function RandomId()
+					local s = ""
+					for i = 1, 3 do
+						local idx = math.random(1, #IdChars)
+						s = s .. IdChars:sub(idx, idx)
+					end
+					return s
+				end
+				local id = RandomId()
+				local tries = 0
+				while isfile(ConfigPath(id)) and tries < 50 do
+					id = RandomId()
+					tries = tries + 1
+				end
+				return id
+			end
+
+			local function SanitizeId(text)
+				text = (text or ""):gsub("%s+", ""):upper()
+				if #text == 3 and text:match("^[A-Z0-9]+$") then return text end
+				return nil
+			end
+
+			local ActiveConfigId = nil
+			do
+				local ok, data = pcall(function()
+					if isfile(ConfigsRoot .. "/_active.txt") then return readfile(ConfigsRoot .. "/_active.txt") end
+				end)
+				if ok and data and data ~= "" then ActiveConfigId = data end
+			end
+
+			local function SaveActiveConfigPointer()
+				pcall(writefile, ConfigsRoot .. "/_active.txt", ActiveConfigId or "")
+			end
+
+			local ActiveSection, ActiveHolder = ConfigsTabEF:AddSection({Name = "Active Config"})
+			local NewSection, NewHolder       = ConfigsTabEF:AddSection({Name = "New Config"})
+			local ListSection, ListHolder     = ConfigsTabEF:AddSection({Name = "Configs"})
+
+			local ActiveConfigRow = AddThemeObject(SetChildren(SetProps(MakeElement("RoundFrame", Color3.fromRGB(255,255,255), 0, 5), {
+				Size = UDim2.new(1,0,0,38),
+				Parent = ActiveHolder,
+				BackgroundTransparency = 0.2
+			}), {
+				AddThemeObject(MakeElement("Stroke"), "Stroke"),
+				AddThemeObject(SetProps(MakeElement("Label", "Config: ...", 15), {
+					Size = UDim2.new(1,-90,1,0),
+					Position = UDim2.new(0,12,0,0),
+					Font = Enum.Font.FredokaOne,
+					RichText = true,
+					Name = "Label"
+				}), "Text"),
+				SetProps(MakeElement("Button"), {
+					Size = UDim2.new(0,70,1,0),
+					Position = UDim2.new(1,0,0,0),
+					AnchorPoint = Vector2.new(1,0),
+					Text = "Save",
+					TextColor3 = Color3.fromRGB(120,170,255),
+					Font = Enum.Font.GothamBold,
+					TextSize = 14,
+					Name = "SaveBtn"
+				})
+			}), "Second")
+
+			local function UpdateActiveConfigLabel()
+				if ActiveConfigId then
+					ActiveConfigRow.Label.Text = "Config: <font color=\"rgb(255,205,70)\">" .. ActiveConfigId .. "</font>"
+				else
+					ActiveConfigRow.Label.Text = "Config: <font color=\"rgb(150,150,155)\">None</font>"
+				end
+			end
+
+			local function ApplyLoadedConfig(data)
+				if not data then return end
+				Library.UserConfig = data
+				if data.__theme == "Custom" and data.__customAccent then
+					local saved = data.__customAccent
+					if saved and saved.R and saved.G and saved.B then
+						Library.Themes.Custom = GenerateThemeFromAccent(UnpackColor(saved))
+					end
+				end
+				if data.__theme and Library.Themes[data.__theme] then
+					Library.SelectedTheme = data.__theme
+				end
+				for flag, value in pairs(Library.UserConfig) do
+					if flag ~= "__theme" and flag ~= "__customAccent" and Library.Flags[flag] then
+						if Library.Flags[flag].Type == "Colorpicker" then
+							Library.Flags[flag]:Set(UnpackColor(value))
+						else
+							Library.Flags[flag]:Set(value)
+						end
+					end
+				end
+				SetTheme()
+				if data.__theme == "Custom" and data.__customAccent then
+					AllowCustomThemeApply = false
+					AccentColorpicker:Set(UnpackColor(data.__customAccent))
+					AllowCustomThemeApply = true
+				elseif data.__theme then
+					ThemeDropdown:Set(data.__theme)
+				end
+			end
+
+			local RefreshConfigsList -- forward declared, defined below
+
+			local function LoadConfigById(id)
+				local path = ConfigPath(id)
+				if not isfile(path) then
+					Library:MakeNotification({Name = "Config not found", Content = "No config exists with ID \"" .. id .. "\".", Time = 4})
+					return
+				end
+				local ok, decoded = pcall(function() return HttpService:JSONDecode(readfile(path)) end)
+				if not ok or not decoded then
+					Library:MakeNotification({Name = "Load failed", Content = "The config file for \"" .. id .. "\" is corrupted.", Time = 4})
+					return
+				end
+				ApplyLoadedConfig(decoded)
+				ActiveConfigId = id
+				SaveActiveConfigPointer()
+				UpdateActiveConfigLabel()
+				Library:MakeNotification({Name = "Config Loaded", Content = "Loaded config \"" .. id .. "\".", Time = 3})
+			end
+
+			local function DeleteConfig(id)
+				pcall(delfile, ConfigPath(id))
+				if ActiveConfigId == id then
+					ActiveConfigId = nil
+					SaveActiveConfigPointer()
+					UpdateActiveConfigLabel()
+				end
+				RefreshConfigsList()
+			end
+
+			local function ClearListHolder()
+				for _, child in ipairs(ListHolder:GetChildren()) do
+					if not child:IsA("UIListLayout") then child:Destroy() end
+				end
+			end
+
+			local function CreateConfigRow(id)
+				local Row = AddThemeObject(SetChildren(SetProps(MakeElement("RoundFrame", Color3.fromRGB(255,255,255), 0, 5), {
+					Size = UDim2.new(1,0,0,38),
+					Parent = ListHolder,
+					BackgroundTransparency = 0.2
+				}), {
+					AddThemeObject(MakeElement("Stroke"), "Stroke"),
+					AddThemeObject(SetProps(MakeElement("Label", id, 15), {
+						Size = UDim2.new(1,-110,1,0),
+						Position = UDim2.new(0,12,0,0),
+						Font = Enum.Font.FredokaOne
+					}), "Text"),
+					SetProps(MakeElement("Button"), {
+						Size = UDim2.new(0,24,0,24),
+						Position = UDim2.new(1,-92,0.5,0),
+						AnchorPoint = Vector2.new(0,0.5),
+						Text = "-",
+						TextColor3 = Color3.fromRGB(230,90,90),
+						Font = Enum.Font.GothamBold,
+						TextSize = 18,
+						Name = "DeleteBtn"
+					}),
+					SetProps(MakeElement("Button"), {
+						Size = UDim2.new(0,60,1,0),
+						Position = UDim2.new(1,0,0,0),
+						AnchorPoint = Vector2.new(1,0),
+						Text = "Load",
+						TextColor3 = Color3.fromRGB(120,170,255),
+						Font = Enum.Font.GothamBold,
+						TextSize = 14,
+						Name = "LoadBtn"
+					})
+				}), "Second")
+
+				AddConnection(Row.DeleteBtn.MouseButton1Click, function() DeleteConfig(id) end)
+				AddConnection(Row.LoadBtn.MouseButton1Click,   function() LoadConfigById(id) end)
+			end
+
+			RefreshConfigsList = function()
+				ClearListHolder()
+				for _, id in ipairs(ListConfigIds()) do
+					CreateConfigRow(id)
+				end
+			end
+
+			local function BuildInlineActionRow(Holder, Placeholder, ActionText, OnAction)
+				local ActionBtn = SetProps(MakeElement("Button"), {
+					Size = UDim2.new(0,78,1,0),
+					Position = UDim2.new(1,0,0,0),
+					AnchorPoint = Vector2.new(1,0),
+					Text = ActionText,
+					TextColor3 = Color3.fromRGB(120,170,255),
+					Font = Enum.Font.GothamBold,
+					TextSize = 14
+				})
+				local InputBox = AddThemeObject(Create("TextBox", {
+					Size = UDim2.new(1,-90,1,0),
+					Position = UDim2.new(0,12,0,0),
+					BackgroundTransparency = 1,
+					TextColor3 = Color3.fromRGB(255,255,255),
+					PlaceholderColor3 = Color3.fromRGB(150,150,155),
+					PlaceholderText = Placeholder,
+					Font = Enum.Font.GothamSemibold,
+					TextXAlignment = Enum.TextXAlignment.Left,
+					TextSize = 14,
+					ClearTextOnFocus = false,
+					Text = ""
+				}), "Text")
+				local Divider = AddThemeObject(SetProps(MakeElement("Frame"), {
+					Size = UDim2.new(0,1,0,22),
+					Position = UDim2.new(1,-78,0.5,0),
+					AnchorPoint = Vector2.new(0,0.5)
+				}), "Stroke")
+				local Row = AddThemeObject(SetChildren(SetProps(MakeElement("RoundFrame", Color3.fromRGB(255,255,255), 0, 5), {
+					Size = UDim2.new(1,0,0,38),
+					Parent = Holder,
+					BackgroundTransparency = 0.2
+				}), {
+					AddThemeObject(MakeElement("Stroke"), "Stroke"),
+					InputBox,
+					Divider,
+					ActionBtn
+				}), "Second")
+
+				local function Fire()
+					local sound = Instance.new("Sound") sound.SoundId = "rbxassetid://6895079853" sound.Volume = 0.5 sound.Parent = game:GetService("SoundService") sound:Play() game:GetService("Debris"):AddItem(sound, 1)
+					OnAction(InputBox.Text)
+					InputBox.Text = ""
+				end
+				AddConnection(ActionBtn.MouseButton1Click, Fire)
+				AddConnection(InputBox.FocusLost, function(enterPressed) if enterPressed then Fire() end end)
+
+				return Row, InputBox
+			end
+
+			AddConnection(ActiveConfigRow.SaveBtn.MouseButton1Click, function()
+				if not ActiveConfigId then
+					ActiveConfigId = GenerateId()
+					SaveActiveConfigPointer()
+					UpdateActiveConfigLabel()
+				end
+				Library.UserConfig.__theme = Library.SelectedTheme
+				pcall(function() writefile(ConfigPath(ActiveConfigId), HttpService:JSONEncode(Library.UserConfig)) end)
+				RefreshConfigsList()
+				Library:MakeNotification({Name = "Config Saved", Content = "Saved as \"" .. ActiveConfigId .. "\".", Time = 3})
+			end)
+
+			BuildInlineActionRow(NewHolder, "Config name...", "+ Create", function(text)
+				local desired = SanitizeId(text)
+				local id = desired
+				if not id then
+					id = GenerateId()
+				elseif isfile(ConfigPath(id)) then
+					Library:MakeNotification({Name = "ID taken", Content = "The ID \"" .. id .. "\" already exists. Pick another or leave it empty for a random one.", Time = 4})
+					return
+				end
+				ActiveConfigId = id
+				Library.UserConfig.__theme = Library.SelectedTheme
+				pcall(function() writefile(ConfigPath(id), HttpService:JSONEncode(Library.UserConfig)) end)
+				SaveActiveConfigPointer()
+				UpdateActiveConfigLabel()
+				RefreshConfigsList()
+				Library:MakeNotification({Name = "Config Created", Content = "Created config \"" .. id .. "\".", Time = 3})
+			end)
+
+			BuildInlineActionRow(NewHolder, "Load ID...", "+ Load", function(text)
+				local id = (text or ""):gsub("%s+", ""):upper()
+				if id == "" then return end
+				LoadConfigById(id)
+			end)
+
+			UpdateActiveConfigLabel()
+			RefreshConfigsList()
+		end
 	end
 
 	return TabFunction
