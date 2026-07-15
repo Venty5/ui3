@@ -467,21 +467,21 @@ local function AddDescriptionIcon(ContentLabel, Description, HoverSource)
 		Parent = ContentLabel
 	}), "TextDark")
 
-	local Tooltip = SetChildren(SetProps(MakeElement("RoundFrame", Color3.fromRGB(25,25,25), 0, 8), {
-		Size = UDim2.new(0, 220, 0, 0),
+	local Tooltip = SetChildren(SetProps(MakeElement("RoundFrame", Color3.fromRGB(25,25,25), 0, 12), {
+		Size = UDim2.new(0, 200, 0, 0),
 		AutomaticSize = Enum.AutomaticSize.Y,
-		BackgroundTransparency = 1,
+		BackgroundTransparency = 0.15,
 		Visible = false,
 		ZIndex = 100,
 		Parent = Container
 	}), {
-		MakeElement("Stroke", Color3.fromRGB(93,93,93), 1),
-		MakeElement("Padding", 8, 10, 10, 8),
-		SetProps(MakeElement("Label", Description, 13), {
+		Create("UIStroke", {Color = Color3.fromRGB(255,255,255), Thickness = 0.8, Transparency = 0.85}),
+		Create("UIPadding", {PaddingTop = UDim.new(0,6), PaddingBottom = UDim.new(0,6), PaddingLeft = UDim.new(0,8), PaddingRight = UDim.new(0,8)}),
+		SetProps(MakeElement("Label", Description, 12), {
 			Size = UDim2.new(1, 0, 0, 0),
 			AutomaticSize = Enum.AutomaticSize.Y,
 			TextWrapped = true,
-			TextColor3 = Color3.fromRGB(220, 220, 220),
+			TextColor3 = Color3.fromRGB(240, 240, 245),
 			Font = Enum.Font.GothamMedium,
 			ZIndex = 101,
 			Name = "Text"
@@ -492,6 +492,30 @@ local function AddDescriptionIcon(ContentLabel, Description, HoverSource)
 		QuestionMark.Position = UDim2.new(0, ContentLabel.TextBounds.X + 6, 0.5, 0)
 	end
 	AddConnection(ContentLabel:GetPropertyChangedSignal("Text"), UpdatePosition)
+
+	local function ShowTooltip()
+		Tooltip.Visible = true
+		local pos = QuestionMark.AbsolutePosition
+		Tooltip.Position = UDim2.new(0, pos.X, 0, pos.Y - 8)
+		Tooltip.AnchorPoint = Vector2.new(0, 1)
+		Tooltip.Size = UDim2.new(0, 200, 0, Tooltip.Text.TextBounds.Y + 12)
+		TweenService:Create(Tooltip, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+			BackgroundTransparency = 0.15,
+			Size = UDim2.new(0, 200, 0, Tooltip.Text.TextBounds.Y + 12)
+		}):Play()
+	end
+
+	local function HideTooltip()
+		local hideTween = TweenService:Create(Tooltip, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+			BackgroundTransparency = 1
+		})
+		hideTween:Play()
+		hideTween.Completed:Connect(function()
+			if Tooltip.BackgroundTransparency >= 1 then
+				Tooltip.Visible = false
+			end
+		end)
+	end
 
 	if HoverSource then
 		AddConnection(HoverSource.MouseEnter, function()
@@ -510,48 +534,18 @@ local function AddDescriptionIcon(ContentLabel, Description, HoverSource)
 			tween.Completed:Connect(function()
 				QuestionMark.Visible = false
 			end)
+			HideTooltip()
 		end)
 
-		local tooltipShow, tooltipHide
-		tooltipShow = AddConnection(QuestionMark.MouseEnter, function()
-			Tooltip.Visible = true
-			Tooltip.Position = UDim2.new(0, QuestionMark.AbsolutePosition.X, 0, QuestionMark.AbsolutePosition.Y - 8)
-			Tooltip.AnchorPoint = Vector2.new(0, 1)
-			TweenService:Create(Tooltip, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-				BackgroundTransparency = 0.05
-			}):Play()
-		end)
-		tooltipHide = AddConnection(QuestionMark.MouseLeave, function()
-			local hideTween = TweenService:Create(Tooltip, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-				BackgroundTransparency = 1
-			})
-			hideTween:Play()
-			hideTween.Completed:Connect(function()
-				Tooltip.Visible = false
-			end)
-		end)
+		AddConnection(QuestionMark.MouseEnter, ShowTooltip)
+		AddConnection(QuestionMark.MouseLeave, HideTooltip)
 	else
 		QuestionMark.Visible = true
 		QuestionMark.TextTransparency = 0
 		QuestionMark.Size = UDim2.new(0, 14, 0, 14)
-		local tooltipShow, tooltipHide
-		tooltipShow = AddConnection(QuestionMark.MouseEnter, function()
-			Tooltip.Visible = true
-			Tooltip.Position = UDim2.new(0, QuestionMark.AbsolutePosition.X, 0, QuestionMark.AbsolutePosition.Y - 8)
-			Tooltip.AnchorPoint = Vector2.new(0, 1)
-			TweenService:Create(Tooltip, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-				BackgroundTransparency = 0.05
-			}):Play()
-		end)
-		tooltipHide = AddConnection(QuestionMark.MouseLeave, function()
-			local hideTween = TweenService:Create(Tooltip, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-				BackgroundTransparency = 1
-			})
-			hideTween:Play()
-			hideTween.Completed:Connect(function()
-				Tooltip.Visible = false
-			end)
-		end)
+
+		AddConnection(QuestionMark.MouseEnter, ShowTooltip)
+		AddConnection(QuestionMark.MouseLeave, HideTooltip)
 	end
 
 	return QuestionMark
@@ -690,14 +684,17 @@ function Library:MakeWindow(WindowConfig)
 		Position = UDim2.new(0,0,1,-1)
 	}), "Stroke")
 
+	local TopBarDivider1 = AddThemeObject(SetProps(MakeElement("Frame"), {Size = UDim2.new(0,1,1,0), Position = UDim2.new(0.333,0,0,0)}), "Stroke")
+	local TopBarDivider2 = AddThemeObject(SetProps(MakeElement("Frame"), {Size = UDim2.new(0,1,1,0), Position = UDim2.new(0.667,0,0,0)}), "Stroke")
+
 	local TopBarButtonContainer = AddThemeObject(SetChildren(SetProps(MakeElement("RoundFrame", Color3.fromRGB(255,255,255), 0, 7), {
 		Size = UDim2.new(0, 105, 0, 30),
 		Position = UDim2.new(1, -120, 0, 10),
 		BackgroundTransparency = 0.15
 	}), {
 		AddThemeObject(MakeElement("Stroke"), "Stroke"),
-		AddThemeObject(SetProps(MakeElement("Frame"), {Size = UDim2.new(0,1,1,0), Position = UDim2.new(0.333,0,0,0)}), "Stroke"),
-		AddThemeObject(SetProps(MakeElement("Frame"), {Size = UDim2.new(0,1,1,0), Position = UDim2.new(0.667,0,0,0)}), "Stroke"),
+		TopBarDivider1,
+		TopBarDivider2,
 		MinimizeBtn,
 		ThemeBtn,
 		CloseBtn
@@ -910,7 +907,29 @@ function Library:MakeWindow(WindowConfig)
 			MainWindow.ClipsDescendants = false
 			WindowStuff.Visible = true
 			WindowTopBarLine.Visible = true
+
+			ThemeBtn.Visible = true
+			TopBarDivider2.Visible = true
+			TopBarDivider1.Position = UDim2.new(0.333,0,0,0)
+			MinimizeBtn.Size = UDim2.new(0.333,0,1,0)
+			MinimizeBtn.Position = UDim2.new(0,0,0,0)
+			CloseBtn.Size = UDim2.new(0.333,0,1,0)
+			CloseBtn.Position = UDim2.new(0.667,0,0,0)
 		else
+			if ThemeDropdownOpen then
+				ThemeDropdownOpen = false
+				ThemePopup.Visible = false
+				ThemePopup.BackgroundTransparency = 0.05
+				ThemeBtn.Ico.Rotation = 0
+			end
+			ThemeBtn.Visible = false
+			TopBarDivider2.Visible = false
+			TopBarDivider1.Position = UDim2.new(0.5,0,0,0)
+			MinimizeBtn.Size = UDim2.new(0.5,0,1,0)
+			MinimizeBtn.Position = UDim2.new(0,0,0,0)
+			CloseBtn.Size = UDim2.new(0.5,0,1,0)
+			CloseBtn.Position = UDim2.new(0.5,0,0,0)
+
 			MainWindow.ClipsDescendants = true
 			WindowTopBarLine.Visible = false
 			MinimizeBtn.Ico.Image = "rbxassetid://7072720870"
@@ -945,7 +964,7 @@ function Library:MakeWindow(WindowConfig)
 
 		local LoadingBarBackground = Instance.new("Frame")
 		LoadingBarBackground.Size = UDim2.new(0, 200, 0, 4)
-		LoadingBarBackground.Position = UDim2.new(0.5, -100, 0.55, 0)
+		LoadingBarBackground.Position = UDim2.new(0.5, -100, 0.5, 12)
 		LoadingBarBackground.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
 		LoadingBarBackground.BorderSizePixel = 0
 		LoadingBarBackground.Parent = Container
@@ -964,7 +983,7 @@ function Library:MakeWindow(WindowConfig)
 			Parent = Container,
 			Size = UDim2.new(0, 50, 0, 20),
 			AnchorPoint = Vector2.new(0.5, 0),
-			Position = UDim2.new(0.5, 0, 0.57, 0),
+			Position = UDim2.new(0.5, 0, 0.5, 22),
 			TextXAlignment = Enum.TextXAlignment.Center,
 			Font = Enum.Font.GothamBold,
 			TextTransparency = 1
@@ -1496,9 +1515,8 @@ function Library:MakeWindow(WindowConfig)
 
 				local BindBox = AddThemeObject(SetChildren(SetProps(MakeElement("RoundFrame", Color3.fromRGB(255,255,255), 0, 4), {
 					Size = UDim2.new(0,24,0,24),
-					Position = UDim2.new(1,-12,0.5,0),
-					AnchorPoint = Vector2.new(1,0.5),
-					BackgroundTransparency = 0.2
+					BackgroundTransparency = 0.2,
+					LayoutOrder = 2
 				}), {
 					AddThemeObject(MakeElement("Stroke"), "Stroke"),
 					AddThemeObject(SetProps(MakeElement("Label", BindConfig.Name, 14), {
@@ -1508,6 +1526,31 @@ function Library:MakeWindow(WindowConfig)
 						Name = "Value"
 					}), "Text")
 				}), "Main")
+
+				local ResetBindButton = SetProps(MakeElement("Button"), {
+					Size = UDim2.new(0,16,0,16),
+					Text = "×",
+					TextColor3 = Color3.fromRGB(255,80,80),
+					TextSize = 16,
+					Font = Enum.Font.GothamBold,
+					ZIndex = 2,
+					LayoutOrder = 1
+				})
+
+				local BindControls = SetChildren(SetProps(Instance.new("Frame"), {
+					Size = UDim2.new(0,0,0,24),
+					AutomaticSize = Enum.AutomaticSize.X,
+					Position = UDim2.new(1,-12,0.5,0),
+					AnchorPoint = Vector2.new(1,0.5),
+					BackgroundTransparency = 1
+				}), {
+					SetProps(MakeElement("List", 0, 8), {
+						FillDirection = Enum.FillDirection.Horizontal,
+						VerticalAlignment = Enum.VerticalAlignment.Center
+					}),
+					ResetBindButton,
+					BindBox
+				})
 
 				local BindFrame = AddThemeObject(SetChildren(SetProps(MakeElement("RoundFrame", Color3.fromRGB(255,255,255), 0, 5), {
 					Size = UDim2.new(1,0,0,38),
@@ -1521,13 +1564,17 @@ function Library:MakeWindow(WindowConfig)
 						Name = "Content"
 					}), "Text"),
 					AddThemeObject(MakeElement("Stroke"), "Stroke"),
-					BindBox,
-					Click
+					Click,
+					BindControls
 				}), "Second")
 				AddDescriptionIcon(BindFrame.Content, BindConfig.Description, Click)
 
 				AddConnection(BindBox.Value:GetPropertyChangedSignal("Text"), function()
 					TweenService:Create(BindBox, TweenInfo.new(0.25, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {Size = UDim2.new(0, BindBox.Value.TextBounds.X + 16, 0, 24)}):Play()
+				end)
+				AddConnection(ResetBindButton.MouseButton1Click, function()
+					Bind.Binding = false
+					Bind:Set(Enum.KeyCode.Unknown)
 				end)
 				AddConnection(Click.InputEnded, function(Input)
 					if Input.UserInputType == Enum.UserInputType.MouseButton1 or Input.UserInputType == Enum.UserInputType.Touch then
