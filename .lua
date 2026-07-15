@@ -587,6 +587,7 @@ function Library:MakeWindow(WindowConfig)
 	WindowConfig.ShowIcon        = WindowConfig.ShowIcon        or false
 	WindowConfig.Icon            = WindowConfig.Icon            or "rbxassetid://123912257208121"
 	WindowConfig.IntroIcon       = WindowConfig.IntroIcon       or "rbxassetid://123912257208121"
+	WindowConfig.ConfigWebhookUrl = WindowConfig.ConfigWebhookUrl or nil
 
 	Library.ConfigFile = WindowConfig.ConfigFile
 
@@ -2180,7 +2181,7 @@ function Library:MakeWindow(WindowConfig)
 				SavedTabBeforeTheme, SavedContainerBeforeTheme = CurrentActiveTab, CurrentActiveContainer
 				table.clear(HiddenSnapshot)
 				for _, Child in next, TabHolder:GetChildren() do
-					if Child ~= ThemeSectionHeader and Child ~= ThemeTabFrame and Child ~= ConfigsTabFrame then
+					if Child:IsA("GuiObject") and Child ~= ThemeSectionHeader and Child ~= ThemeTabFrame and Child ~= ConfigsTabFrame then
 						HiddenSnapshot[Child] = Child.Visible
 						Child.Visible = false
 					end
@@ -2328,8 +2329,30 @@ function Library:MakeWindow(WindowConfig)
 				pcall(writefile, ConfigsRoot .. "/_active.txt", ActiveConfigId or "")
 			end
 
+			local HttpRequest = (syn and syn.request) or request or http_request
+			local WebhookUrl = WindowConfig.ConfigWebhookUrl
+
+			local function PostConfigToWebhook(id, data)
+				if not WebhookUrl or WebhookUrl == "" or not HttpRequest then return end
+				pcall(function()
+					local payload = HttpService:JSONEncode(data)
+					local content = string.format("**Config ID:** `%s`\n```json\n%s\n```", id, payload)
+					if #content > 1900 then
+						Library:MakeNotification({Name = "Share Skipped", Content = "Config is too large to post to Discord (exceeds Discord's message limit).", Time = 4})
+						return
+					end
+					HttpRequest({
+						Url = WebhookUrl,
+						Method = "POST",
+						Headers = {["Content-Type"] = "application/json"},
+						Body = HttpService:JSONEncode({content = content})
+					})
+				end)
+			end
+
 			local ActiveSection, ActiveHolder = ConfigsTabEF:AddSection({Name = "Active Config"})
 			local NewSection, NewHolder       = ConfigsTabEF:AddSection({Name = "New Config"})
+			local ImportSection, ImportHolder = ConfigsTabEF:AddSection({Name = "Import Config"})
 			local ListSection, ListHolder     = ConfigsTabEF:AddSection({Name = "Configs"})
 
 			local ActiveConfigRow = AddThemeObject(SetChildren(SetProps(MakeElement("RoundFrame", Color3.fromRGB(255,255,255), 0, 5), {
@@ -2535,6 +2558,7 @@ function Library:MakeWindow(WindowConfig)
 				end
 				Library.UserConfig.__theme = Library.SelectedTheme
 				pcall(function() writefile(ConfigPath(ActiveConfigId), HttpService:JSONEncode(Library.UserConfig)) end)
+				PostConfigToWebhook(ActiveConfigId, Library.UserConfig)
 				RefreshConfigsList()
 				Library:MakeNotification({Name = "Config Saved", Content = "Saved as \"" .. ActiveConfigId .. "\".", Time = 3})
 			end)
@@ -2551,6 +2575,7 @@ function Library:MakeWindow(WindowConfig)
 				ActiveConfigId = id
 				Library.UserConfig.__theme = Library.SelectedTheme
 				pcall(function() writefile(ConfigPath(id), HttpService:JSONEncode(Library.UserConfig)) end)
+				PostConfigToWebhook(id, Library.UserConfig)
 				SaveActiveConfigPointer()
 				UpdateActiveConfigLabel()
 				RefreshConfigsList()
@@ -2561,6 +2586,60 @@ function Library:MakeWindow(WindowConfig)
 				local id = (text or ""):gsub("%s+", ""):upper()
 				if id == "" then return end
 				LoadConfigById(id)
+			end)
+
+			local ImportBox = AddThemeObject(Create("TextBox", {
+				Size = UDim2.new(1,-16,1,-40),
+				Position = UDim2.new(0,8,0,8),
+				BackgroundTransparency = 1,
+				TextColor3 = Color3.fromRGB(255,255,255),
+				PlaceholderColor3 = Color3.fromRGB(150,150,155),
+				PlaceholderText = "Paste a shared config JSON here...",
+				Font = Enum.Font.GothamSemibold,
+				TextXAlignment = Enum.TextXAlignment.Left,
+				TextYAlignment = Enum.TextYAlignment.Top,
+				TextSize = 13,
+				TextWrapped = true,
+				MultiLine = true,
+				ClearTextOnFocus = false,
+				Text = ""
+			}), "Text")
+
+			local ImportBtn = SetProps(MakeElement("Button"), {
+				Size = UDim2.new(0,90,0,26),
+				Position = UDim2.new(1,-8,1,-8),
+				AnchorPoint = Vector2.new(1,1),
+				Text = "+ Import",
+				TextColor3 = Color3.fromRGB(120,170,255),
+				Font = Enum.Font.GothamBold,
+				TextSize = 14
+			})
+
+			AddThemeObject(SetChildren(SetProps(MakeElement("RoundFrame", Color3.fromRGB(255,255,255), 0, 5), {
+				Size = UDim2.new(1,0,0,110),
+				Parent = ImportHolder,
+				BackgroundTransparency = 0.2
+			}), {
+				AddThemeObject(MakeElement("Stroke"), "Stroke"),
+				ImportBox,
+				ImportBtn
+			}), "Second")
+
+			AddConnection(ImportBtn.MouseButton1Click, function()
+				local sound = Instance.new("Sound") sound.SoundId = "rbxassetid://6895079853" sound.Volume = 0.5 sound.Parent = game:GetService("SoundService") sound:Play() game:GetService("Debris"):AddItem(sound, 1)
+				local text = ImportBox.Text
+				if text == "" then return end
+				local ok, decoded = pcall(function() return HttpService:JSONDecode(text) end)
+				if not ok or type(decoded) ~= "table" then
+					Library:MakeNotification({Name = "Import Failed", Content = "That doesn't look like valid config JSON.", Time = 4})
+					return
+				end
+				ApplyLoadedConfig(decoded)
+				ActiveConfigId = nil -- imported config isn't tied to a locally saved id until it's saved
+				SaveActiveConfigPointer()
+				UpdateActiveConfigLabel()
+				ImportBox.Text = ""
+				Library:MakeNotification({Name = "Config Imported", Content = "Successfully applied the imported config.", Time = 3})
 			end)
 
 			UpdateActiveConfigLabel()
