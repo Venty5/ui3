@@ -112,7 +112,6 @@ function Library:LoadConfig()
 		end)
 		if success and data then
 			self.UserConfig = data
-			-- Load saved theme
 			if data.__theme and self.Themes[data.__theme] then
 				self.SelectedTheme = data.__theme
 			end
@@ -453,6 +452,111 @@ function Library:MakeNotification(NotificationConfig)
 	end)
 end
 
+local function AddDescriptionIcon(ContentLabel, Description, HoverSource)
+	if not Description or Description == "" then return end
+
+	local QuestionMark = AddThemeObject(SetProps(MakeElement("Label", "?", 12), {
+		Size = UDim2.new(0, 0, 0, 14),
+		AnchorPoint = Vector2.new(0, 0.5),
+		Position = UDim2.new(0, ContentLabel.TextBounds.X + 6, 0.5, 0),
+		TextXAlignment = Enum.TextXAlignment.Center,
+		Font = Enum.Font.GothamBold,
+		Name = "QuestionMark",
+		Visible = false,
+		TextTransparency = 1,
+		Parent = ContentLabel
+	}), "TextDark")
+
+	local Tooltip = SetChildren(SetProps(MakeElement("RoundFrame", Color3.fromRGB(25,25,25), 0, 8), {
+		Size = UDim2.new(0, 220, 0, 0),
+		AutomaticSize = Enum.AutomaticSize.Y,
+		BackgroundTransparency = 1,
+		Visible = false,
+		ZIndex = 100,
+		Parent = Container
+	}), {
+		MakeElement("Stroke", Color3.fromRGB(93,93,93), 1),
+		MakeElement("Padding", 8, 10, 10, 8),
+		SetProps(MakeElement("Label", Description, 13), {
+			Size = UDim2.new(1, 0, 0, 0),
+			AutomaticSize = Enum.AutomaticSize.Y,
+			TextWrapped = true,
+			TextColor3 = Color3.fromRGB(220, 220, 220),
+			Font = Enum.Font.GothamMedium,
+			ZIndex = 101,
+			Name = "Text"
+		})
+	})
+
+	local function UpdatePosition()
+		QuestionMark.Position = UDim2.new(0, ContentLabel.TextBounds.X + 6, 0.5, 0)
+	end
+	AddConnection(ContentLabel:GetPropertyChangedSignal("Text"), UpdatePosition)
+
+	if HoverSource then
+		AddConnection(HoverSource.MouseEnter, function()
+			QuestionMark.Visible = true
+			TweenService:Create(QuestionMark, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+				TextTransparency = 0,
+				Size = UDim2.new(0, 14, 0, 14)
+			}):Play()
+		end)
+		AddConnection(HoverSource.MouseLeave, function()
+			local tween = TweenService:Create(QuestionMark, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+				TextTransparency = 1,
+				Size = UDim2.new(0, 0, 0, 14)
+			})
+			tween:Play()
+			tween.Completed:Connect(function()
+				QuestionMark.Visible = false
+			end)
+		end)
+
+		local tooltipShow, tooltipHide
+		tooltipShow = AddConnection(QuestionMark.MouseEnter, function()
+			Tooltip.Visible = true
+			Tooltip.Position = UDim2.new(0, QuestionMark.AbsolutePosition.X, 0, QuestionMark.AbsolutePosition.Y - 8)
+			Tooltip.AnchorPoint = Vector2.new(0, 1)
+			TweenService:Create(Tooltip, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+				BackgroundTransparency = 0.05
+			}):Play()
+		end)
+		tooltipHide = AddConnection(QuestionMark.MouseLeave, function()
+			local hideTween = TweenService:Create(Tooltip, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+				BackgroundTransparency = 1
+			})
+			hideTween:Play()
+			hideTween.Completed:Connect(function()
+				Tooltip.Visible = false
+			end)
+		end)
+	else
+		QuestionMark.Visible = true
+		QuestionMark.TextTransparency = 0
+		QuestionMark.Size = UDim2.new(0, 14, 0, 14)
+		local tooltipShow, tooltipHide
+		tooltipShow = AddConnection(QuestionMark.MouseEnter, function()
+			Tooltip.Visible = true
+			Tooltip.Position = UDim2.new(0, QuestionMark.AbsolutePosition.X, 0, QuestionMark.AbsolutePosition.Y - 8)
+			Tooltip.AnchorPoint = Vector2.new(0, 1)
+			TweenService:Create(Tooltip, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+				BackgroundTransparency = 0.05
+			}):Play()
+		end)
+		tooltipHide = AddConnection(QuestionMark.MouseLeave, function()
+			local hideTween = TweenService:Create(Tooltip, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+				BackgroundTransparency = 1
+			})
+			hideTween:Play()
+			hideTween.Completed:Connect(function()
+				Tooltip.Visible = false
+			end)
+		end)
+	end
+
+	return QuestionMark
+end
+
 function Library:MakeWindow(WindowConfig)
 	local FirstTab = true
 	local Minimized = false
@@ -512,7 +616,6 @@ function Library:MakeWindow(WindowConfig)
 		}), "Text")
 	})
 
-	-- Theme Dropdown Button (arrow down icon, middle button)
 	local ThemeDropdownOpen = false
 	local ThemeDropdownFrame = nil
 
@@ -560,13 +663,13 @@ function Library:MakeWindow(WindowConfig)
 				AddThemeObject(MakeElement("Stroke"), "Stroke"),
 				MakeElement("Corner", 1)
 			}),
-			AddThemeObject(SetProps(MakeElement("Label", "Name = Hidden", WindowConfig.HidePremium and 14 or 13), {
+			AddThemeObject(SetProps(MakeElement("Label", "Void Menu", WindowConfig.HidePremium and 14 or 13), {
 				Size = UDim2.new(1,-60,0,13),
 				Position = WindowConfig.HidePremium and UDim2.new(0,50,0,19) or UDim2.new(0,50,0,12),
 				Font = Enum.Font.FredokaOne,
 				ClipsDescendants = true
 			}), "Text"),
-			SetProps(MakeElement("Label", "Void Menu", 12), {
+			SetProps(MakeElement("Label", "No Vip", 12), {
 				Size = UDim2.new(1,-60,0,12),
 				Position = UDim2.new(0,50,1,-25),
 				Visible = not WindowConfig.HidePremium,
@@ -587,16 +690,13 @@ function Library:MakeWindow(WindowConfig)
 		Position = UDim2.new(0,0,1,-1)
 	}), "Stroke")
 
-	-- TopBar button container: now 3 buttons wide
 	local TopBarButtonContainer = AddThemeObject(SetChildren(SetProps(MakeElement("RoundFrame", Color3.fromRGB(255,255,255), 0, 7), {
 		Size = UDim2.new(0, 105, 0, 30),
 		Position = UDim2.new(1, -120, 0, 10),
 		BackgroundTransparency = 0.15
 	}), {
 		AddThemeObject(MakeElement("Stroke"), "Stroke"),
-		-- divider between minimize and theme
 		AddThemeObject(SetProps(MakeElement("Frame"), {Size = UDim2.new(0,1,1,0), Position = UDim2.new(0.333,0,0,0)}), "Stroke"),
-		-- divider between theme and close
 		AddThemeObject(SetProps(MakeElement("Frame"), {Size = UDim2.new(0,1,1,0), Position = UDim2.new(0.667,0,0,0)}), "Stroke"),
 		MinimizeBtn,
 		ThemeBtn,
@@ -608,7 +708,7 @@ function Library:MakeWindow(WindowConfig)
 		Position = UDim2.new(0.5,-307,0.5,-172),
 		Size = UDim2.new(0,615,0,344),
 		ClipsDescendants = true,
-		BackgroundTransparency = 0.1
+		BackgroundTransparency = 0
 	}), {
 		SetChildren(SetProps(MakeElement("TFrame"), {Size = UDim2.new(1,0,0,50), Name = "TopBar"}), {
 			WindowName,
@@ -619,13 +719,12 @@ function Library:MakeWindow(WindowConfig)
 		WindowStuff
 	}), "Main")
 
-	-- Theme dropdown popup (parented to Container so it floats above everything)
 	local ThemeNames = {"Black", "White", "Gray", "Blue", "Purple", "Red"}
 	local ThemeDisplayNames = {"Black", "White", "Gray", "Blue", "Purple", "Red"}
 
 	local ThemePopup = Create("Frame", {
 		BackgroundColor3 = Library.Themes[Library.SelectedTheme].Second,
-		BackgroundTransparency = 0.05,
+		BackgroundTransparency = 0,
 		BorderSizePixel = 0,
 		Size = UDim2.new(0, 120, 0, #ThemeNames * 28 + 8),
 		Visible = false,
@@ -674,7 +773,6 @@ function Library:MakeWindow(WindowConfig)
 			end
 		end)
 		optBtn.MouseButton1Click:Connect(function()
-			-- play click sound
 			local sound = Instance.new("Sound")
 			sound.SoundId = "rbxassetid://6895079853"
 			sound.Volume = 0.5
@@ -685,7 +783,6 @@ function Library:MakeWindow(WindowConfig)
 			Library.SelectedTheme = tName
 			SetTheme()
 
-			-- Update popup styling
 			ThemePopup.BackgroundColor3 = Library.Themes[tName].Second
 			local popupStroke = ThemePopup:FindFirstChildOfClass("UIStroke")
 			if popupStroke then popupStroke.Color = Library.Themes[tName].Stroke end
@@ -698,13 +795,11 @@ function Library:MakeWindow(WindowConfig)
 				}):Play()
 			end
 
-			-- Auto-save theme
 			if WindowConfig.SaveConfig and Library.ConfigFile then
 				Library.UserConfig.__theme = tName
 				Library:SaveConfig()
 			end
 
-			-- Close popup
 			ThemeDropdownOpen = false
 			TweenService:Create(ThemePopup, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
 				BackgroundTransparency = 1
@@ -712,12 +807,6 @@ function Library:MakeWindow(WindowConfig)
 			wait(0.15)
 			ThemePopup.Visible = false
 			ThemePopup.BackgroundTransparency = 0.05
-
-			Library:MakeNotification({
-				Name = "Theme geändert",
-				Content = "Theme wurde auf " .. displayName .. " gesetzt.",
-				Time = 3
-			})
 		end)
 	end
 
@@ -748,7 +837,6 @@ function Library:MakeWindow(WindowConfig)
 		end
 	end)
 
-	-- Close popup when clicking elsewhere
 	AddConnection(UserInputService.InputBegan, function(Input)
 		if Input.UserInputType == Enum.UserInputType.MouseButton1 and ThemeDropdownOpen then
 			local mx, my = Mouse.X, Mouse.Y
@@ -966,8 +1054,8 @@ function Library:MakeWindow(WindowConfig)
 			TabFrame.Ico.ImageTransparency = 0
 			TabFrame.Title.TextTransparency = 0
 			TabFrame.Title.Font = Enum.Font.GothamBlack
-			TabFrame.Ico.ImageColor3 = Color3.fromRGB(150, 150, 165)
-			TabFrame.Title.TextColor3 = Color3.fromRGB(150, 150, 165)
+			TabFrame.Ico.ImageColor3 = Color3.fromRGB(255, 255, 255)
+			TabFrame.Title.TextColor3 = Color3.fromRGB(255, 255, 255)
 			TabItemContainer.Visible = true
 		end
 
@@ -983,8 +1071,8 @@ function Library:MakeWindow(WindowConfig)
 			for _, ItemContainer in next, MainWindow:GetChildren() do
 				if ItemContainer.Name == "ItemContainer" then ItemContainer.Visible = false end
 			end
-			TweenService:Create(TabFrame.Ico,   TweenInfo.new(0.25, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {ImageTransparency = 0, ImageColor3 = Color3.fromRGB(150, 150, 165)}):Play()
-			TweenService:Create(TabFrame.Title, TweenInfo.new(0.25, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {TextTransparency  = 0, TextColor3  = Color3.fromRGB(150, 150, 165)}):Play()
+			TweenService:Create(TabFrame.Ico,   TweenInfo.new(0.25, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {ImageTransparency = 0, ImageColor3 = Color3.fromRGB(255, 255, 255)}):Play()
+			TweenService:Create(TabFrame.Title, TweenInfo.new(0.25, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {TextTransparency  = 0, TextColor3  = Color3.fromRGB(255, 255, 255)}):Play()
 			TabFrame.Title.Font = Enum.Font.GothamBlack
 			TabItemContainer.Visible = true
 		end)
@@ -1050,9 +1138,10 @@ function Library:MakeWindow(WindowConfig)
 
 			function ElementFunction:AddButton(ButtonConfig)
 				ButtonConfig = ButtonConfig or {}
-				ButtonConfig.Name     = ButtonConfig.Name     or "Button"
-				ButtonConfig.Callback = ButtonConfig.Callback or function() end
-				ButtonConfig.Icon     = ButtonConfig.Icon     or "rbxassetid://3944703587"
+				ButtonConfig.Name        = ButtonConfig.Name        or "Button"
+				ButtonConfig.Callback    = ButtonConfig.Callback    or function() end
+				ButtonConfig.Icon        = ButtonConfig.Icon        or "rbxassetid://3944703587"
+				ButtonConfig.Description = ButtonConfig.Description or nil
 				local Button = {}
 				local Click = SetProps(MakeElement("Button"), {Size = UDim2.new(1,0,1,0)})
 				local ButtonFrame = AddThemeObject(SetChildren(SetProps(MakeElement("RoundFrame", Color3.fromRGB(255,255,255), 0, 5), {
@@ -1073,6 +1162,7 @@ function Library:MakeWindow(WindowConfig)
 					AddThemeObject(MakeElement("Stroke"), "Stroke"),
 					Click
 				}), "Second")
+				AddDescriptionIcon(ButtonFrame.Content, ButtonConfig.Description, Click)
 				AddConnection(Click.MouseEnter,      function() TweenService:Create(ButtonFrame, TweenInfo.new(0.25, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {BackgroundColor3 = Color3.fromRGB(Library.Themes[Library.SelectedTheme].Second.R*255+3, Library.Themes[Library.SelectedTheme].Second.G*255+3, Library.Themes[Library.SelectedTheme].Second.B*255+3)}):Play() end)
 				AddConnection(Click.MouseLeave,      function() TweenService:Create(ButtonFrame, TweenInfo.new(0.25, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {BackgroundColor3 = Library.Themes[Library.SelectedTheme].Second}):Play() end)
 				AddConnection(Click.MouseButton1Up,  function()
@@ -1087,12 +1177,13 @@ function Library:MakeWindow(WindowConfig)
 
 			function ElementFunction:AddToggle(ToggleConfig)
 				ToggleConfig = ToggleConfig or {}
-				ToggleConfig.Name     = ToggleConfig.Name     or "Toggle"
-				ToggleConfig.Default  = ToggleConfig.Default  or false
-				ToggleConfig.Callback = ToggleConfig.Callback or function() end
-				ToggleConfig.Color    = ToggleConfig.Color    or Color3.fromRGB(150, 150, 165)
-				ToggleConfig.Flag     = ToggleConfig.Flag     or nil
-				ToggleConfig.Save     = ToggleConfig.Save     or false
+				ToggleConfig.Name        = ToggleConfig.Name        or "Toggle"
+				ToggleConfig.Default     = ToggleConfig.Default     or false
+				ToggleConfig.Callback    = ToggleConfig.Callback    or function() end
+				ToggleConfig.Color       = ToggleConfig.Color       or Color3.fromRGB(150, 150, 165)
+				ToggleConfig.Flag        = ToggleConfig.Flag        or nil
+				ToggleConfig.Save        = ToggleConfig.Save        or false
+				ToggleConfig.Description = ToggleConfig.Description or nil
 
 				local Toggle = {Value = ToggleConfig.Default, Save = ToggleConfig.Save, Type = "Toggle"}
 				local Click = SetProps(MakeElement("Button"), {Size = UDim2.new(1,0,1,0)})
@@ -1126,6 +1217,7 @@ function Library:MakeWindow(WindowConfig)
 					ToggleBox,
 					Click
 				}), "Second")
+				AddDescriptionIcon(ToggleFrame.Content, ToggleConfig.Description, Click)
 
 				function Toggle:Set(Value)
 					Toggle.Value = Value
@@ -1160,16 +1252,17 @@ function Library:MakeWindow(WindowConfig)
 
 			function ElementFunction:AddSlider(SliderConfig)
 				SliderConfig = SliderConfig or {}
-				SliderConfig.Name      = SliderConfig.Name      or "Slider"
-				SliderConfig.Min       = SliderConfig.Min       or 0
-				SliderConfig.Max       = SliderConfig.Max       or 100
-				SliderConfig.Increment = SliderConfig.Increment or 1
-				SliderConfig.Default   = SliderConfig.Default   or 50
-				SliderConfig.Callback  = SliderConfig.Callback  or function() end
-				SliderConfig.ValueName = SliderConfig.ValueName or ""
-				SliderConfig.Color     = SliderConfig.Color     or Color3.fromRGB(150, 150, 165)
-				SliderConfig.Flag      = SliderConfig.Flag      or nil
-				SliderConfig.Save      = SliderConfig.Save      or false
+				SliderConfig.Name        = SliderConfig.Name        or "Slider"
+				SliderConfig.Min         = SliderConfig.Min         or 0
+				SliderConfig.Max         = SliderConfig.Max         or 100
+				SliderConfig.Increment   = SliderConfig.Increment   or 1
+				SliderConfig.Default     = SliderConfig.Default     or 50
+				SliderConfig.Callback    = SliderConfig.Callback    or function() end
+				SliderConfig.ValueName   = SliderConfig.ValueName   or ""
+				SliderConfig.Color       = SliderConfig.Color       or Color3.fromRGB(150, 150, 165)
+				SliderConfig.Flag        = SliderConfig.Flag        or nil
+				SliderConfig.Save        = SliderConfig.Save        or false
+				SliderConfig.Description = SliderConfig.Description or nil
 
 				local Slider = {Value = SliderConfig.Default, Save = SliderConfig.Save, Type = "Slider"}
 				local Dragging = false
@@ -1218,6 +1311,7 @@ function Library:MakeWindow(WindowConfig)
 					AddThemeObject(MakeElement("Stroke"), "Stroke"),
 					SliderBar
 				}), "Second")
+				AddDescriptionIcon(SliderFrame.Content, SliderConfig.Description, SliderFrame)
 
 				SliderBar.InputBegan:Connect(function(Input)
 					if Input.UserInputType == Enum.UserInputType.MouseButton1 or Input.UserInputType == Enum.UserInputType.Touch then
@@ -1263,12 +1357,13 @@ function Library:MakeWindow(WindowConfig)
 
 			function ElementFunction:AddDropdown(DropdownConfig)
 				DropdownConfig = DropdownConfig or {}
-				DropdownConfig.Name     = DropdownConfig.Name     or "Dropdown"
-				DropdownConfig.Options  = DropdownConfig.Options  or {}
-				DropdownConfig.Default  = DropdownConfig.Default  or ""
-				DropdownConfig.Callback = DropdownConfig.Callback or function() end
-				DropdownConfig.Flag     = DropdownConfig.Flag     or nil
-				DropdownConfig.Save     = DropdownConfig.Save     or false
+				DropdownConfig.Name        = DropdownConfig.Name        or "Dropdown"
+				DropdownConfig.Options     = DropdownConfig.Options     or {}
+				DropdownConfig.Default     = DropdownConfig.Default     or ""
+				DropdownConfig.Callback    = DropdownConfig.Callback    or function() end
+				DropdownConfig.Flag        = DropdownConfig.Flag        or nil
+				DropdownConfig.Save        = DropdownConfig.Save        or false
+				DropdownConfig.Description = DropdownConfig.Description or nil
 
 				local Dropdown = {Value = DropdownConfig.Default, Options = DropdownConfig.Options, Buttons = {}, Toggled = false, Type = "Dropdown", Save = DropdownConfig.Save}
 				local MaxElements = 5
@@ -1301,6 +1396,7 @@ function Library:MakeWindow(WindowConfig)
 					AddThemeObject(MakeElement("Stroke"), "Stroke"),
 					MakeElement("Corner")
 				}), "Second")
+				AddDescriptionIcon(DropdownFrame.F.Content, DropdownConfig.Description, Click)
 
 				AddConnection(DropdownList:GetPropertyChangedSignal("AbsoluteContentSize"), function()
 					DropdownContainer.CanvasSize = UDim2.new(0,0,0,DropdownList.AbsoluteContentSize.Y)
@@ -1386,12 +1482,13 @@ function Library:MakeWindow(WindowConfig)
 			end
 
 			function ElementFunction:AddBind(BindConfig)
-				BindConfig.Name     = BindConfig.Name     or "Bind"
-				BindConfig.Default  = BindConfig.Default  or Enum.KeyCode.Unknown
-				BindConfig.Hold     = BindConfig.Hold     or false
-				BindConfig.Callback = BindConfig.Callback or function() end
-				BindConfig.Flag     = BindConfig.Flag     or nil
-				BindConfig.Save     = BindConfig.Save     or false
+				BindConfig.Name        = BindConfig.Name        or "Bind"
+				BindConfig.Default     = BindConfig.Default     or Enum.KeyCode.Unknown
+				BindConfig.Hold        = BindConfig.Hold        or false
+				BindConfig.Callback    = BindConfig.Callback    or function() end
+				BindConfig.Flag        = BindConfig.Flag        or nil
+				BindConfig.Save        = BindConfig.Save        or false
+				BindConfig.Description = BindConfig.Description or nil
 
 				local Bind = {Value = nil, Binding = false, Type = "Bind", Save = BindConfig.Save}
 				local Holding = false
@@ -1427,6 +1524,7 @@ function Library:MakeWindow(WindowConfig)
 					BindBox,
 					Click
 				}), "Second")
+				AddDescriptionIcon(BindFrame.Content, BindConfig.Description, Click)
 
 				AddConnection(BindBox.Value:GetPropertyChangedSignal("Text"), function()
 					TweenService:Create(BindBox, TweenInfo.new(0.25, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {Size = UDim2.new(0, BindBox.Value.TextBounds.X + 16, 0, 24)}):Play()
@@ -1497,6 +1595,7 @@ function Library:MakeWindow(WindowConfig)
 				TextboxConfig.Callback      = TextboxConfig.Callback      or function() end
 				TextboxConfig.Save          = TextboxConfig.Save          or false
 				TextboxConfig.Flag          = TextboxConfig.Flag          or nil
+				TextboxConfig.Description   = TextboxConfig.Description   or nil
 
 				local Textbox = {Save = TextboxConfig.Save, Type = "Textbox", Value = TextboxConfig.Default}
 				local Click = SetProps(MakeElement("Button"), {Size = UDim2.new(1,0,1,0)})
@@ -1537,6 +1636,7 @@ function Library:MakeWindow(WindowConfig)
 					TextContainer,
 					Click
 				}), "Second")
+				AddDescriptionIcon(TextboxFrame.Content, TextboxConfig.Description, Click)
 
 				function Textbox:Set(Value)
 					Textbox.Value = Value
@@ -1580,11 +1680,12 @@ function Library:MakeWindow(WindowConfig)
 
 			function ElementFunction:AddColorpicker(ColorpickerConfig)
 				ColorpickerConfig = ColorpickerConfig or {}
-				ColorpickerConfig.Name     = ColorpickerConfig.Name     or "Colorpicker"
-				ColorpickerConfig.Default  = ColorpickerConfig.Default  or Color3.fromRGB(255,255,255)
-				ColorpickerConfig.Callback = ColorpickerConfig.Callback or function() end
-				ColorpickerConfig.Flag     = ColorpickerConfig.Flag     or nil
-				ColorpickerConfig.Save     = ColorpickerConfig.Save     or false
+				ColorpickerConfig.Name        = ColorpickerConfig.Name        or "Colorpicker"
+				ColorpickerConfig.Default     = ColorpickerConfig.Default     or Color3.fromRGB(255,255,255)
+				ColorpickerConfig.Callback    = ColorpickerConfig.Callback    or function() end
+				ColorpickerConfig.Flag        = ColorpickerConfig.Flag        or nil
+				ColorpickerConfig.Save        = ColorpickerConfig.Save        or false
+				ColorpickerConfig.Description = ColorpickerConfig.Description or nil
 
 				local ColorH, ColorS, ColorV = 1, 1, 1
 				local Colorpicker = {Value = ColorpickerConfig.Default, Toggled = false, Type = "Colorpicker", Save = ColorpickerConfig.Save}
@@ -1654,6 +1755,7 @@ function Library:MakeWindow(WindowConfig)
 					ColorpickerContainer,
 					AddThemeObject(MakeElement("Stroke"), "Stroke"),
 				}), "Second")
+				AddDescriptionIcon(ColorpickerFrame.F.Content, ColorpickerConfig.Description, Click)
 
 				AddConnection(Click.MouseButton1Click, function()
 					local sound = Instance.new("Sound") sound.SoundId = "rbxassetid://6895079853" sound.Volume = 0.5 sound.Parent = game:GetService("SoundService") sound:Play() game:GetService("Debris"):AddItem(sound, 1)
@@ -1966,7 +2068,7 @@ function Library:MakeWindow(WindowConfig)
 	function TabFunction:TabSection(Name)
 		Name = Name or "Section"
 
-		local headerBtn = Create("Frame", {  -- Changed from TextButton to Frame (not clickable)
+		local headerBtn = Create("Frame", {
 			Size             = UDim2.new(1, 0, 0, 24),
 			BackgroundTransparency = 1,
 			BorderSizePixel  = 0,
@@ -1995,13 +2097,12 @@ function Library:MakeWindow(WindowConfig)
 			Parent             = headerBtn,
 		})
 
-		-- No collapse logic; tabs always visible
 		local tabFrames = {}
 
 		local groupData = {
 			header    = headerBtn,
 			frames    = tabFrames,
-			collapsed = false,  -- always false, never collapses
+			collapsed = false,
 		}
 		table.insert(allGroups, groupData)
 
@@ -2017,7 +2118,7 @@ function Library:MakeWindow(WindowConfig)
 			if currentTabSection then
 				table.insert(currentTabSection.frames, frame)
 				tabGroupRegistry[frame] = currentTabSection
-				frame.Visible = true  -- always visible, no collapse
+				frame.Visible = true
 			end
 		end
 		return ef
